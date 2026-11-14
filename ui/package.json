@@ -1,23 +1,21 @@
 {
-  "name": "template-app-ui",
+  "name": "terminal-app-ui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "TEMPLATE — mode-agnostic frontend for aw-app-template (ADR Decision 3/4/6, docs/knowledge_base/docs/architecture/adr-app-front-back-routes-dual-mode.md). src/client.js is the framework-free core; src/plugin.js is the integrated-mode entry (register(host), built as a Vite lib-mode bundle); src/standalone.js + index.html is the standalone page. `npm run build` produces ui/dist/, consumed by BOTH __main__.py (standalone) and aw-app.json's contributes.frontend.bundle (integrated).",
+  "description": "Component-mode frontend for aw-app-terminal — the Terminal row inside the workspace nav popover (new terminal, running-terminal flyout, close), extracted from aw-app-code-agent-clis' Agents menu and registered into the core.nav.workspace slot. src/client.js is the framework-free client for core's own /api/terminals endpoints; src/plugin.jsx is the integrated-mode entry (register(host)), built as a Vite lib-mode bundle consumed by aw-app.json's contributes.frontend.bundle.",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:plugin && npm run build:standalone",
-    "build:plugin": "vite build --mode plugin",
-    "build:standalone": "vite build --mode standalone",
+    "build": "vite build",
     "lint": "eslint ."
   },
   "devDependencies": {
-    "vite": "^5.4.0",
-    "eslint": "^10.14.0",
     "@eslint/js": "^10.0.1",
-    "globals": "^17.14.0"
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "vite": "^5.4.0"
   }
 }
