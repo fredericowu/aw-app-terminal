@@ -1,57 +1,51 @@
-// Framework-free client core (ADR Decision 4) — the actual app logic,
-// completely unaware of whether it's running integrated (inside the AW SPA,
-// behind IdentityGuard) or standalone (its own page, no auth). Both
-// plugin.js and standalone.js build the same {apiUrl, wsUrl} shape and hand
-// it here; nothing else differs between the two modes.
+// Framework-free API client for the three CORE terminal endpoints this app
+// drives (src/api/terminal.py in aw-workspace):
 //
-//   apiUrl:    (sub) => string        e.g. sub="/template"   -> ".../api/apps/aw-app-template/template"
-//   wsUrl:     (sub) => string        e.g. sub="/ws/echo" -> "ws(s)://.../api/apps/aw-app-template/ws/echo"
+//   GET    /api/terminals          -> list every PTY session
+//   POST   /api/terminals          -> create one, returns {id, name, type}
+//   DELETE /api/terminals/{id}     -> kill one
 //
-// App-owned top-level WebSocket namespaces are reserved at /ws/apps/<slug>/...
-// so apps never claim root /ws/*; root /ws/* stays AW core/control-plane only.
-//   fetchImpl: (path, init) => Promise<Response>   defaults to plain fetch
+// These are CORE routes, not this app's own `/api/apps/terminal/*` — the PTY
+// shell stays core-owned (see terminal_app/plugin.py). So `fetchImpl` must be
+// the RAW host.sdk.api.fetch; host.app.fetch would prefix `/api/apps/terminal`
+// and 404.
 //
-// connectEcho() speaks the aw-ws/1 envelope the server implements
-// (template_app/routes.py) — every frame in or out is {type, data, id?,
-// re?}, never a bare string. onMessage receives the PARSED envelope,
-// including the aw_app_template_init handshake and any {"type":"error",
-// ...} frame; send(data) wraps `data` in an aw_app_template_echo envelope
-// with a fresh correlation id, so the reply's `re` proves the round-trip.
-// This is deliberately not a reconnect/close-code-aware client — that is
-// the shared hook's job (standard §7, a separate card); this stays the
-// minimal shape a new app copies.
+// No framework imports here on purpose: this file is plain JS so it can be
+// reasoned about (and reused) without a React host.
 
-export function createClient({ apiUrl, wsUrl, fetchImpl = fetch }) {
-  async function template() {
-    const res = await fetchImpl(apiUrl('/template'));
-    if (!res.ok) throw new Error(`GET /template -> ${res.status}`);
+// `/api/terminals` returns EVERY session, including the agent-CLI ones
+// aw-app-code-agent-clis owns and dead ones that have not been reaped yet.
+// Core splits the same payload the same way (aw-workspace-ui App.jsx's
+// applyTerminalUpdate: type 'terminal' is a plain shell, 'stubborn' is
+// deliberately hidden, anything else is an agent session) — this app's menu
+// must only ever show plain, live shells.
+function isPlainLiveTerminal(t) {
+  return !!t && t.alive && t.type === 'terminal';
+}
+
+export function createClient({ fetchImpl }) {
+  async function json(path, init) {
+    const res = await fetchImpl(path, init);
+    if (!res.ok) throw new Error(`${init?.method || 'GET'} ${path} -> ${res.status}`);
     return res.json();
   }
 
-  function connectEcho({ onOpen, onMessage, onClose } = {}) {
-    const ws = new WebSocket(wsUrl('/ws/echo'));
-    if (onOpen) ws.addEventListener('open', onOpen);
-    if (onMessage) {
-      ws.addEventListener('message', (ev) => {
-        // /ws/echo never sends non-JSON, but a reader copying this file into
-        // a socket that mixes binary frames (aw-ws/1 §4.5) needs the guard.
-        let envelope;
-        try {
-          envelope = JSON.parse(ev.data);
-        } catch {
-          return;
-        }
-        onMessage(envelope);
-      });
-    }
-    if (onClose) ws.addEventListener('close', onClose);
-    let nextId = 0;
-    return {
-      send: (data) => ws.send(JSON.stringify({ type: 'aw_app_template_echo', data, id: String(nextId++) })),
-      close: () => ws.close(),
-      raw: ws,
-    };
-  }
+  return {
+    async listTerminals() {
+      const data = await json('/api/terminals');
+      return (Array.isArray(data) ? data : []).filter(isPlainLiveTerminal);
+    },
 
-  return { template, connectEcho };
+    createTerminal(name) {
+      return json('/api/terminals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+    },
+
+    deleteTerminal(id) {
+      return json(`/api/terminals/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    },
+  };
 }
