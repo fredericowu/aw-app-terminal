@@ -25,18 +25,7 @@
 // deliberately a ZERO-PROP contribution: `core.nav.workspace` passes no props
 // to its fillers, so this row works wherever that slot happens to be rendered.
 
-import { createClient } from './client.js';
-
-// Matches core's own numbering (aw-workspace-ui App.jsx createTerminal) so
-// terminals opened from here and from core get one consistent name series
-// instead of two overlapping "Terminal 1"s.
-function nextTerminalName(terminals) {
-  const nums = (terminals || []).map((t) => {
-    const m = /^Terminal (\d+)$/.exec(t.name || '');
-    return m ? Number(m[1]) : 0;
-  });
-  return `Terminal ${Math.max(0, ...nums) + 1}`;
-}
+import { createClient, nextTerminalName } from './client.js';
 
 function byName(a, b) {
   return (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase());
@@ -44,6 +33,30 @@ function byName(a, b) {
 
 export function register(host) {
   const client = createClient({ fetchImpl: host.sdk.api.fetch });
+
+  // Expose the shared terminal management service globally so dependents
+  // (e.g. aw-app-code-agent-clis) and workspace UI components can create,
+  // restart, rename, close, and open terminal sessions through one contract.
+  if (typeof window !== 'undefined') {
+    const api = {
+      ...client,
+      nextTerminalName,
+      openTerminal(id) {
+        if (window.__awOpenTerminal) {
+          window.__awOpenTerminal(id);
+          return true;
+        }
+        return false;
+      },
+    };
+    window.__awTerminal = api;
+    window.dispatchEvent(new CustomEvent('aw-terminal-app-ready', { detail: api }));
+    if (typeof host.onDispose === 'function') {
+      host.onDispose(() => {
+        if (window.__awTerminal === api) delete window.__awTerminal;
+      });
+    }
+  }
 
   const { useState, useRef, useCallback, useEffect } = host.React;
 

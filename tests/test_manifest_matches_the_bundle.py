@@ -50,3 +50,6 @@ def test_the_bundle_still_drives_cores_terminal_api_and_window_opener():
     assert "/api/terminals" in source
     assert "/api/apps/terminal" not in source
     assert "__awOpenTerminal" in source
+    assert "__awTerminal" in source
+    assert "restartTerminal" in source
+    assert "renameTerminal" in source
