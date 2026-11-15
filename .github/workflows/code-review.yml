@@ -218,7 +218,7 @@ concurrency:
 
 jobs:
   review:
-    uses: fredericowu/aw-shared-workflows/.github/workflows/code-review-reusable.yml@v1.11.0
+    uses: fredericowu/aw-shared-workflows/.github/workflows/code-review-reusable.yml@v1.11.2
     with:
       # test.yml's job id on this repo. Verified against real `gh pr checks`
       # output (PRs #13-15), not read off the YAML — `ui-lint` is a second job
@@ -231,17 +231,6 @@ jobs:
       # so on v1.0.0 the merge gate would have waited on it and then refused
       # at the 20-minute deadline. Fixed in v1.0.1, pinned above.
       ci_check_name: coverage
-      # `runs_on` left at its default (`"ubuntu-latest"`), which is what all
-      # three `runs-on:` lines in the pre-conversion file said. Note this
-      # repo's test.yml derives ITS runner from the repo owner
-      # (`startsWith(github.repository, 'tekflox/')`); code-review never did,
-      # and this conversion does not change that.
-      # This repo is the CANARY (card 4175bf3b) for v1.11.0's new agent_slug
-      # input: dispatch code-reviewer-pipeline, the flow-detached twin of
-      # code-reviewer-sonnet, so this CI-only review stops sharing a slug
-      # with a node on the software-engineering Agents Flow. See
-      # fredericowu/aw-shared-workflows's PROVENANCE header note for why.
-      agent_slug: code-reviewer-pipeline
     # Declared here as well as in the called workflow: for a reusable workflow
     # the effective GITHUB_TOKEN permissions are the INTERSECTION of the two,
     # so a scope omitted here cannot be granted by the shared file — AND a
